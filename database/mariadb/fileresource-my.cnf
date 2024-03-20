@@ -138,6 +138,7 @@ innodb_file_per_table	= 1
 innodb_open_files	= 400
 innodb_io_capacity	= 400
 innodb_flush_method	= O_DIRECT
+innodb_file_per_table=ON
 #
 # * Security Features
 #
