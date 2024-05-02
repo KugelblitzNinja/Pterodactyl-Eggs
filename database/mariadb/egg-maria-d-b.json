@@ -1,0 +1,123 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-05-02T17:39:37+00:00",
+    "name": "MariaDB",
+    "author": "kugelblitzninja@gmail.com",
+    "description": "MariaDB with Offsite backups.",
+    "features": null,
+    "docker_images": {
+        "kugelblitzninja\/pterodactyl-images:mariadb": "kugelblitzninja\/pterodactyl-images:mariadb",
+        "kugelblitzninja\/pterodactyl-images:mariadb-dev": "kugelblitzninja\/pterodactyl-images:mariadb-dev"
+    },
+    "file_denylist": [],
+    "startup": "{ mariadbd & } && sleep 5 && mariadb --user=root --password={{MARIADB_PASSWORD}}",
+    "config": {
+        "files": "{\r\n    \".my.cnf\": {\r\n        \"parser\": \"file\",\r\n        \"find\": {\r\n            \"port\": \"port = {{server.build.default.port}}\",\r\n            \"bind-address\": \"bind-address=0.0.0.0\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": \"mariadbd: ready for connections\"\r\n}",
+        "logs": "{}",
+        "stop": "shutdown; exit;"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/bin\/bash\r\n# To be run in a mariadb:latest docker container\r\n# Server Files: \/mnt\/server\r\nset -x\r\n\r\n#Setup the installation container\r\necho -e \"installing dependencies to get the installer working\"\r\napt-get -y update\r\napt-get -y install curl\r\n\r\n#We can define new pw in the control panel but if there is not one\r\nif [ -z \"${MARIADB_PASSWORD}\" ]; then\r\n  MARIADB_PASSWORD=$(tr -dc 'A-Za-z0-9' < \/dev\/urandom | head -c 16)\r\nfi \r\n\r\n#Check if there is a MySQL port verable, if not set one\r\nif [ -z \"$SERVER_PORT\" ]; then\r\n  SERVER_PORT=3306\r\nfi\r\n\r\n#Check if there is a MySQL bind IP verable, if not set one\r\nif [ -z \"$SERVER_IP\" ]; then\r\n  SERVER_IP=\"0.0.0.0\"\r\nfi\r\n\r\n#Download and prep the mysql config for the installer\r\n\r\nmkdir -p \/mnt\/server\/.mariadb\r\n\r\nif ! [ -f \/mnt\/server\/.mariadb\/installer.my.cnf ]; then\r\n  curl https:\/\/raw.githubusercontent.com\/KugelblitzNinja\/Pterodactyl-Eggs\/main\/database\/mariadb\/fileresource-install.my.cnf > \/mnt\/server\/.mariadb\/installer.my.cnf\r\nfi\r\nif ! [ -f \/mnt\/server\/.my.cnf ]; then\r\n  curl https:\/\/raw.githubusercontent.com\/KugelblitzNinja\/Pterodactyl-Eggs\/main\/database\/mariadb\/fileresource-my.cnf > \/mnt\/server\/.my.cnf\r\nfi\r\n\r\n#Look for the port in the config and update it tobe \r\nsed -i \"s\/port.*= \\d*\/port = ${SERVER_PORT}\/\" \"\/mnt\/server\/.mariadb\/installer.my.cnf\"\r\nsed -i \"s\/.*bind-address.*\/bind-address = ${SERVER_IP}\/\" \"\/mnt\/server\/.mariadb\/installer.my.cnf\"\r\n\r\nsed -i \"s\/port.*= \\d*\/port = ${SERVER_PORT}\/\" \"\/mnt\/server\/.my.cnf\"\r\nsed -i \"s\/.*bind-address.*\/bind-address = ${SERVER_IP}\/\" \"\/mnt\/server\/.my.cnf\"\r\n\r\n\r\nif [ -d \/mnt\/server\/.mariadb\/data ]; then\r\n    { mariadbd --defaults-file=\/mnt\/server\/.mariadb\/installer.my.cnf --user=root  & } &\r\n    sleep 5 && mariadb-upgrade --socket=\/mnt\/server\/.mariadb\/mysqld.sock --user=root\r\nelse    \r\n    mkdir -p \/mnt\/server\/.mariadb\/data\r\n    mariadb-install-db --defaults-file=\/mnt\/server\/.mariadb\/installer.my.cnf --datadir=\/mnt\/server\/.mariadb\/data\r\n    { mariadbd --user=root --datadir='\/mnt\/server\/.mariadb\/data' & } & \r\n    sleep 5 && mariadb-admin -u root password ${MARIADB_PASSWORD}\r\n    echo ${MARIADB_PASSWORD} >> \/mnt\/server\/.mariadb\/pass\r\nfi\r\n\r\necho -e \"install complete\"\r\nsleep 5\r\nexit",
+            "container": "mariadb:latest",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Root Password For MariaDB",
+            "description": "The root password to setup and login to the MariaDB server",
+            "env_variable": "MARIADB_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic start delay",
+            "description": "How long in seconds should restic wait before doing anything",
+            "env_variable": "RESTIC_START_DELAY",
+            "default_value": "60",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|between:20,600",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic Repository Password",
+            "description": "The name says it all",
+            "env_variable": "RESTIC_PASSWORD",
+            "default_value": "YesYouMustHaveAPassword",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|alpha_dash|between:8,40",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic Time Between Online Backups",
+            "description": "How long between online backup runs should restic wait before running again in seconds.\r\n\r\nSetting this to 0 will disable online backups (Backups while the server is running)\r\n\r\nThis is not recomended due to the amount of extra time the Offline backup will take once the server has shutdown.",
+            "env_variable": "RESTIC_LOOP_COOLDOWN",
+            "default_value": "3600",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:60,86400",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server username",
+            "description": "Username used when connecting to backup server\r\n(If blank backups may fail)",
+            "env_variable": "RESTIC_REST_USERNAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "string",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server password",
+            "description": "Password used when connecting to backup server\r\n(If blank backups may fail)",
+            "env_variable": "RESTIC_REST_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "string",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server URL",
+            "description": "The base of the HTTPs url needed for the server\r\n\r\neg;  backup.yourbackups.com:443\r\n\r\nIf bank backups will be disabled",
+            "env_variable": "RESTIC_REST_URL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "ENABLE_RESTIC",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required",
+            "field_type": "text"
+        },
+        {
+            "name": "Clean Backups",
+            "description": "Should we cleanup old backups, must be set to true or false and not 0 or 1",
+            "env_variable": "ENABLE_RESTIC_FORGET",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required",
+            "field_type": "text"
+        }
+    ]
+}
