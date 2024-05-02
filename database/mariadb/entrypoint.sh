@@ -14,6 +14,8 @@ echo "INTERNAL_IP: ${INTERNAL_IP}"
 #   RESTIC_REST_USERNAME
 #   RESTIC_REST_PASSWORD
 #   RESTIC_REST_URL
+#   ENABLE_RESTIC =true
+#   ENABLE_RESTIC_FORGET =false
 
 # Variables
 KEEP_ALL_WITHIN="1d"
@@ -22,13 +24,11 @@ KEEP_WITHIN_DAILY="1m"
 KEEP_WITHIN_WEEKLY="1y"
 KEEP_WITHIN_MONTHLY="10y"
 KEEP_WITHIN_YEARLY="100y"
-ENABLE_RESTIC=true
-ENABLE_RESTIC_FORGET=false
 MAIN_PROCESS_NAME="mariadbd"
 
 # Sets the restic save location
 export RESTIC_REPOSITORY="rest:https://${RESTIC_REST_URL}/${RESTIC_REST_USERNAME}/${P_SERVER_UUID}/"
-export GOMAXPROCS=1
+export GOMAXPROCS=4
 export RESTIC_PACK_SIZE=64
 
 # Replace Startup Variables
@@ -69,11 +69,14 @@ resticOnline() {
 
     
     nice -n 19 ionice -c 3 restic repair index
-    nice -n 19 ionice -c 3 restic repair snapshots --forget
+
+    #Need to rework this so it only dont after a failed check or flag is true
+
+    #nice -n 19 ionice -c 3 restic repair snapshots --forget
 
     # Remove old backups
     if [[ ${ENABLE_RESTIC_FORGET} == true ]]; then
-        restic forget --tag Offline --prune --max-unused unlimited \
+        restic forget --tag Offline --prune \
             --keep-within ${KEEP_ALL_WITHIN} \
             --keep-within-hourly ${KEEP_WITHIN_HOURLY} \
             --keep-within-daily ${KEEP_WITHIN_DAILY} \
@@ -81,7 +84,7 @@ resticOnline() {
             --keep-within-monthly ${KEEP_WITHIN_MONTHLY} \
             --keep-within-yearly ${KEEP_WITHIN_YEARLY}
 
-        restic forget --tag Online --prune --max-unused unlimited \
+        restic forget --tag Online --prune \
             --keep-within ${KEEP_ALL_WITHIN} \
             --keep-within-hourly ${KEEP_WITHIN_HOURLY} \
             --keep-within-daily ${KEEP_WITHIN_DAILY} \
@@ -176,7 +179,7 @@ resticOffline() {
     ionice -c 3 restic backup /home/container \
                     --exclude-if-present nobackup \
                     --exclude="/home/container/.mariadb/data.bk" \
-                    --tag offline
+                    --tag Offline
 
     restic snapshots
 }
