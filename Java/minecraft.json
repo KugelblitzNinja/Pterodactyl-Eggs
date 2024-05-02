@@ -1,0 +1,135 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-05-02T17:43:57+00:00",
+    "name": "Minecraft",
+    "author": "kugelblitzninja@gmail.com",
+    "description": "Based off the built-in contaners provided with the control panel with intergtated backups.",
+    "features": null,
+    "docker_images": {
+        "Java 7": "kugelblitzninja\/pterodactyl-images:java-7",
+        "Java 8": "kugelblitzninja\/pterodactyl-images:java-8",
+        "Java 17": "kugelblitzninja\/pterodactyl-images:java-17",
+        "Java 21": "kugelblitzninja\/pterodactyl-images:java-21"
+    },
+    "file_denylist": [],
+    "startup": "java -Xms{{JAVA_RAM_GB}}G -Xmx{{JAVA_RAM_GB}}G -Dpaper.disableChannelLimit=true --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https:\/\/mcflags.emc.gs -Daikars.new.flags=true -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -jar {{SERVER_JARFILE}} --nogui",
+    "config": {
+        "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"query.port\": \"{{server.build.default.port}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": \")! For help, type \"\r\n}",
+        "logs": "{}",
+        "stop": "stop"
+    },
+    "scripts": {
+        "installation": {
+            "script": null,
+            "container": "alpine:3.4",
+            "entrypoint": "ash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Java Memory Allowance",
+            "description": "How much ram should java try an use",
+            "env_variable": "JAVA_RAM_GB",
+            "default_value": "2",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|between:1,32",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Jar File",
+            "description": "The name of the server jarfile to run the server with.",
+            "env_variable": "SERVER_JARFILE",
+            "default_value": "server.jar",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|regex:\/^([\\w\\d._-]+)(\\.jar)$\/",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic start delay",
+            "description": "How long in seconds should restic wait before doing anything",
+            "env_variable": "RESTIC_START_DELAY",
+            "default_value": "60",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|between:20,600",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic Repository Password",
+            "description": "The name says it all",
+            "env_variable": "RESTIC_PASSWORD",
+            "default_value": "YesYouMustHaveAPassword",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|alpha_dash|between:8,40",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic Time Between Online Backups",
+            "description": "How long between online backup runs should restic wait before running again in seconds.\r\n\r\nSetting this to 0 will disable online backups (Backups while the server is running)\r\n\r\nThis is not recomended due to the amount of extra time the Offline backup will take once the server has shutdown.",
+            "env_variable": "RESTIC_LOOP_COOLDOWN",
+            "default_value": "3600",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:60,86400",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server username",
+            "description": "Username used when connecting to backup server\r\n(If blank backups may fail)",
+            "env_variable": "RESTIC_REST_USERNAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server password",
+            "description": "Password used when connecting to backup server",
+            "env_variable": "RESTIC_REST_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Restic backup server URL",
+            "description": "The base of the HTTPs url needed for the server\r\n\r\neg;  backup.yourbackups.com:443",
+            "env_variable": "RESTIC_REST_URL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "ENABLE_RESTIC",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required",
+            "field_type": "text"
+        },
+        {
+            "name": "Clean Backups",
+            "description": "Should we cleanup old backups, must be set to true or false and not 0 or 1",
+            "env_variable": "ENABLE_RESTIC_FORGET",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required",
+            "field_type": "text"
+        }
+    ]
+}
