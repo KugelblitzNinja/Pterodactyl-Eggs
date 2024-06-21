@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2024-05-02T17:43:57+00:00",
+    "exported_at": "2024-06-21T10:40:58+00:00",
     "name": "Minecraft",
     "author": "kugelblitzninja@gmail.com",
     "description": "Based off the built-in contaners provided with the control panel with intergtated backups.",
@@ -115,7 +115,7 @@
             "name": "Enable Backups",
             "description": "Must be set too true or false not 0 or 1",
             "env_variable": "ENABLE_RESTIC",
-            "default_value": "true",
+            "default_value": "",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required",
@@ -125,10 +125,40 @@
             "name": "Clean Backups",
             "description": "Should we cleanup old backups, must be set to true or false and not 0 or 1",
             "env_variable": "ENABLE_RESTIC_FORGET",
-            "default_value": "false",
+            "default_value": "",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required",
+            "field_type": "text"
+        },
+        {
+            "name": "Online Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_ONLINE",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Offline Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_OFFLINE",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Backup Prep",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_PREP",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string",
             "field_type": "text"
         }
     ]
