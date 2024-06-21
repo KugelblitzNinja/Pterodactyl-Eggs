@@ -14,8 +14,11 @@ echo "INTERNAL_IP: ${INTERNAL_IP}"
 #   RESTIC_REST_USERNAME
 #   RESTIC_REST_PASSWORD
 #   RESTIC_REST_URL
-#   ENABLE_RESTIC =true
-#   ENABLE_RESTIC_FORGET =false
+#   ENABLE_RESTIC
+#   ENABLE_RESTIC_FORGET
+#   RESTIC_ONLINE
+#   RESTIC_OFFLINE
+#   RESTIC_PREP
 
 # Variables
 KEEP_ALL_WITHIN="1d"
@@ -26,57 +29,62 @@ KEEP_WITHIN_MONTHLY="10y"
 KEEP_WITHIN_YEARLY="100y"
 MAIN_PROCESS_NAME="mariadbd"
 
+
 # Sets the restic save location
 export RESTIC_REPOSITORY="rest:https://${RESTIC_REST_URL}/${RESTIC_REST_USERNAME}/${P_SERVER_UUID}/"
-export GOMAXPROCS=4
+#export GOMAXPROCS=4
 export RESTIC_PACK_SIZE=64
-
+export RESTIC_READ_CONCURRENCY=8
 # Replace Startup Variables
-MODIFIED_STARTUP=$(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
+MODIFIED_STARTUP="ionice -c 2 -n 0 $(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')"
 echo ":/home/container$ ${MODIFIED_STARTUP}"
 
 # Function to check if main prosses is running, this gets call by backgrond tasks to see if they need to stop
 mainProcessExists() {
     if pgrep "${MAIN_PROCESS_NAME}" >/dev/null; then
-        return 0  # mariadbd process is running
+        return 0
     else
-        return 1  # mariadbd process is not running
+        return 1
     fi
 }
 
-# Function to run online restic backups
-resticOnline() {
+startMainProcess() {
+    eval "${MODIFIED_STARTUP}"
+    pkill restic
+}
+
+startBackupProcess() {
+    #Check if we should start the Backup Process
     if [[ ${ENABLE_RESTIC} == false ]]; then
         return 0
     fi
 
+    #Check and prepaire for our restic repostrey
+    restic snapshots >/dev/null || restic init
+    restic unlock
+    restic snapshots
+    restic cache --cleanup
+    restic repair index
+
+
     # Wait for the main process to start
     sleep 5
-
-
+    #May need to wait for a while before continue to the main part of the backup prosess
     for i in $(seq ${RESTIC_START_DELAY}); do
+        #We keep checking if the main prosess has died here, or the script can spend time looping when when it just needs to exit due to death of main prosess
         if ! mainProcessExists; then
             return 0
         fi
         sleep 1
     done
 
-    # Create restic repository if missing
-    restic snapshots >/dev/null || restic init
-    restic unlock
-    restic snapshots
-    restic cache --cleanup
+    resticOnline
+}
 
-    
-    nice -n 19 ionice -c 3 restic repair index
-
-    #Need to rework this so it only dont after a failed check or flag is true
-
-    #nice -n 19 ionice -c 3 restic repair snapshots --forget
-
+cleanupBackups() {
     # Remove old backups
     if [[ ${ENABLE_RESTIC_FORGET} == true ]]; then
-        restic forget --tag Offline --prune \
+        restic forget --tag Offline \
             --keep-within ${KEEP_ALL_WITHIN} \
             --keep-within-hourly ${KEEP_WITHIN_HOURLY} \
             --keep-within-daily ${KEEP_WITHIN_DAILY} \
@@ -84,16 +92,26 @@ resticOnline() {
             --keep-within-monthly ${KEEP_WITHIN_MONTHLY} \
             --keep-within-yearly ${KEEP_WITHIN_YEARLY}
 
-        restic forget --tag Online --prune \
+        restic forget --tag Online \
             --keep-within ${KEEP_ALL_WITHIN} \
             --keep-within-hourly ${KEEP_WITHIN_HOURLY} \
             --keep-within-daily ${KEEP_WITHIN_DAILY} \
             --keep-within-weekly ${KEEP_WITHIN_WEEKLY} \
             --keep-within-monthly ${KEEP_WITHIN_MONTHLY} \
             --keep-within-yearly ${KEEP_WITHIN_YEARLY}
+
+        restic prune --no-cache
+    fi
+}
+
+# Function to run online restic backups
+resticOnline() {
+
+    if [[ ${RESTIC_ONLINE} == false ]]; then
+        return 0
     fi
 
-    #Now its time to do our "online" backups on a loop
+    resticPreparations
 
     while mainProcessExists; do
 
@@ -105,20 +123,39 @@ resticOnline() {
             sleep 1
         done
 
-        #This mariadbBackupPrep function is only here because you can not backup a running mariadb server, so we must make a shadow clone of it.
-        mariadbBackupPrep
-
         restic unlock
         ionice -c 3 restic backup /home/container \
             --exclude-if-present nobackup \
-            --exclude="/home/container/.mariadb/data" \
             --tag Online
         restic snapshots
-    done
+
+        cleanupBackups
+    done    
 }
 
-# Function to prepare MariaDB backup
-mariadbBackupPrep() {
+# Function to perform offline restic backup
+resticOffline() {
+
+    if [[ ${RESTIC_OFFLINE} == false ]]; then
+        return 0
+    fi
+
+    resticPreparations
+
+    restic unlock
+
+    ionice -c 2 -n 1 restic backup /home/container \
+                    --exclude-if-present nobackup \
+                    --tag Offline
+
+    restic snapshots
+}
+
+resticPreparations() {
+    if [[ ${RESTIC_PREP} == false ]]; then
+        return 0
+    fi
+
     MARIADB_DATA=/home/container/.mariadb
 
     #If there is no full copy of the mariadb server data then we need to make one
@@ -170,27 +207,11 @@ mariadbBackupPrep() {
         --incremental-dir "${MARIADB_DATA}/data.ibk"
 
     rm -r "${MARIADB_DATA}/data.ibk"
-}
-
-# Function to perform offline restic backup
-resticOffline() {
-    restic unlock
-
-    ionice -c 3 restic backup /home/container \
-                    --exclude-if-present nobackup \
-                    --exclude="/home/container/.mariadb/data.bk" \
-                    --tag Offline
-
-    restic snapshots
-}
-
-# Main function to execute modified startup
-MainFunction() {
-    eval "${MODIFIED_STARTUP}"
+    #No prep commands are need for a minecraft server
 }
 
 # Start resticOnline in the background, execute our MainFunction, wait or both to exit, then perform resticOffline
-resticOnline &
-MainFunction
+startBackupProcess &
+startMainProcess
 wait
 resticOffline
