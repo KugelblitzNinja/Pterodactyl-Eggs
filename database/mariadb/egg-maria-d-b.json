@@ -118,6 +118,36 @@
             "user_editable": true,
             "rules": "required",
             "field_type": "text"
+        },
+        {
+            "name": "Online Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_ONLINE",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Offline Backups",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_OFFLINE",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Backup Prep",
+            "description": "Must be set too true or false not 0 or 1",
+            "env_variable": "RESTIC_PREP",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string",
+            "field_type": "text"
         }
     ]
 }
